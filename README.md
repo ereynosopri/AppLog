@@ -36,6 +36,7 @@ REPORT_FROM_EMAIL=reports@yourdomain.com
 
 ## Default admin
 
+
 Admin: Emmanuel Reynoso  
 Passcode: `admin123`
 
