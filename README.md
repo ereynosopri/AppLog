@@ -16,7 +16,7 @@ A Vercel-ready appointment logging web app with:
 - Vercel Cron route for weekly email reports
 - Resend email integration placeholder
 
-## Setup
+## Setup 
 
 1. Upload this folder to GitHub.
 2. Import the GitHub repo into Vercel.
