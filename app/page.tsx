@@ -22,6 +22,12 @@ function mondayKey(dateString: string) {
 function currentDate() { return new Date().toISOString().slice(0, 10); }
 function currentTime() { return new Date().toTimeString().slice(0, 5); }
 function yesRatio(total: number, yes: number) { return total ? Math.round((yes / total) * 100) : 0; }
+function yesCountForAppointment(a: Appointment) {
+  if (a.outcome !== 'Yes') return 0;
+  const items = String(a.detail || '').split(',').map(x => x.trim()).filter(Boolean);
+  return items.length || 1;
+}
+function pointsForAppointment(a: Appointment) { return 1 + yesCountForAppointment(a) * 2; }
 function weekLabel(week: string) {
   const start = new Date(week + 'T00:00:00');
   const end = new Date(start);
@@ -55,15 +61,19 @@ export default function Home() {
   const numbersData = useMemo(() => {
     const data = numbersWeek ? visibleAppointments.filter(a => a.week_key === numbersWeek) : visibleAppointments;
     const total = data.length;
-    const yes = data.filter(a => a.outcome === 'Yes').length;
-    const byMember: Record<string, { total: number; yes: number }> = {};
+    const yesAppointments = data.filter(a => a.outcome === 'Yes').length;
+    const yesCount = data.reduce((sum, a) => sum + yesCountForAppointment(a), 0);
+    const points = data.reduce((sum, a) => sum + pointsForAppointment(a), 0);
+    const byMember: Record<string, { total: number; yesAppointments: number; yesCount: number; points: number }> = {};
     data.forEach(a => {
-      byMember[a.member] ||= { total: 0, yes: 0 };
+      byMember[a.member] ||= { total: 0, yesAppointments: 0, yesCount: 0, points: 0 };
       byMember[a.member].total += 1;
-      if (a.outcome === 'Yes') byMember[a.member].yes += 1;
+      byMember[a.member].yesAppointments += a.outcome === 'Yes' ? 1 : 0;
+      byMember[a.member].yesCount += yesCountForAppointment(a);
+      byMember[a.member].points += pointsForAppointment(a);
     });
-    const leaderboard = Object.entries(byMember).sort((a, b) => b[1].yes - a[1].yes || b[1].total - a[1].total);
-    return { data, total, yes, ratio: yesRatio(total, yes), leaderboard };
+    const leaderboard = Object.entries(byMember).sort((a, b) => b[1].points - a[1].points || b[1].yesCount - a[1].yesCount || b[1].total - a[1].total);
+    return { data, total, yes: yesAppointments, yesCount, points, ratio: yesRatio(total, yesAppointments), leaderboard };
   }, [visibleAppointments, numbersWeek]);
 
   async function loadAll() {
@@ -125,6 +135,33 @@ export default function Home() {
     if (error) return show(`Promote error: ${error.message}`);
     await loadAll();
     show(`${name} promoted to co-admin.`);
+  }
+
+  async function removeAdmin(name: string) {
+    if (admins.length <= 1) return show('You must keep at least one admin.');
+    const { error } = await supabase.from('teammates').update({ is_admin: false }).eq('name', name);
+    if (error) return show(`Remove admin error: ${error.message}`);
+    await loadAll();
+    show(`${name} removed from admins.`);
+  }
+
+  async function deleteMember(id: string | undefined, name: string) {
+    if (!id) return show('Cannot delete this member because the ID is missing.');
+    if (name === user?.name) return show('You cannot delete the account you are currently using.');
+    if (!confirm(`Delete ${name} from active teammates? Their old appointments will stay in the logs.`)) return;
+    const { error } = await supabase.from('teammates').update({ active: false }).eq('id', id);
+    if (error) return show(`Delete member error: ${error.message}`);
+    await loadAll();
+    show(`${name} deleted from active teammates.`);
+  }
+
+  async function deleteAppointment(id: string | undefined) {
+    if (!id) return show('Cannot delete this appointment because the ID is missing.');
+    if (!confirm('Delete this appointment?')) return;
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    if (error) return show(`Delete appointment error: ${error.message}`);
+    await loadAll();
+    show('Appointment deleted.');
   }
 
   async function saveSettings() {
@@ -229,15 +266,15 @@ export default function Home() {
       <button className="btn btn-primary btn-full" onClick={saveAppointment}>Save Appointment</button>
     </div></section>
 
-    <section className={'section '+(activeTab==='view'?'active':'')}><div>{visibleAppointments.length ? visibleAppointments.map(a => <div className="log-item" key={a.id}><div className="log-title">{a.client_name}</div><div className="badges"><span className="badge">{a.member}</span><span className="badge">{a.appointment_date}</span><span className="badge">{a.appointment_type}</span><span className="badge">{a.source}</span><span className={'badge '+(a.outcome==='Yes'?'badge-success':'')}>{a.outcome}{a.detail ? ` - ${a.detail}` : ''}</span></div>{a.lessons && <p className="notes"><strong>Lessons:</strong> {a.lessons}</p>}</div>) : <div className="empty">No appointments found.</div>}</div></section>
+    <section className={'section '+(activeTab==='view'?'active':'')}><div>{visibleAppointments.length ? visibleAppointments.map(a => <div className="log-item" key={a.id}><div className="log-top"><div><div className="log-title">{a.client_name}</div><div className="badges"><span className="badge">{a.member}</span><span className="badge">{a.appointment_date}</span><span className="badge">{a.appointment_type}</span><span className="badge">{a.source}</span><span className={'badge '+(a.outcome==='Yes'?'badge-success':'')}>{a.outcome}{a.detail ? ` - ${a.detail}` : ''}</span><span className="badge">{pointsForAppointment(a)} point{pointsForAppointment(a) === 1 ? '' : 's'}</span></div>{a.lessons && <p className="notes"><strong>Lessons:</strong> {a.lessons}</p>}</div>{isAdmin && <button className="btn-danger" onClick={() => deleteAppointment(a.id)}>Delete</button>}</div></div>) : <div className="empty">No appointments found.</div>}</div></section>
 
-    <section className={'section '+(activeTab==='numbers'?'active':'')}><div className="filters"><select value={numbersWeek} onChange={e => setNumbersWeek(e.target.value)}><option value="">All weeks</option>{weeks.map(w => <option key={w} value={w}>{weekLabel(w)}</option>)}</select></div><div className="stats"><div className="stat"><strong>{numbersData.total}</strong><span>Total Appointments</span></div><div className="stat"><strong>{numbersData.yes}</strong><span>YES Outcomes</span></div><div className="stat"><strong>{numbersData.ratio}%</strong><span>YES Ratio</span></div></div><div className="card"><h3>Leaderboard</h3>{numbersData.leaderboard.length ? numbersData.leaderboard.map(([member, stats], idx) => <div className="report-row" key={member}><strong>{idx+1}. {member}</strong><br />{stats.yes} YES / {stats.total} appointments ({yesRatio(stats.total, stats.yes)}%)</div>) : <p className="muted">No numbers yet.</p>}</div></section>
+    <section className={'section '+(activeTab==='numbers'?'active':'')}><div className="filters"><select value={numbersWeek} onChange={e => setNumbersWeek(e.target.value)}><option value="">All weeks</option>{weeks.map(w => <option key={w} value={w}>{weekLabel(w)}</option>)}</select></div><div className="stats"><div className="stat"><strong>{numbersData.total}</strong><span>Total Appointments</span></div><div className="stat"><strong>{numbersData.yes}</strong><span>YES Appointments</span></div><div className="stat"><strong>{numbersData.yesCount}</strong><span>YES Counts</span></div><div className="stat"><strong>{numbersData.points}</strong><span>Total Points</span></div><div className="stat"><strong>{numbersData.ratio}%</strong><span>YES Ratio</span></div></div><div className="card"><h3>Point Legend</h3><p className="muted">Every appointment = 1 point. Every checked YES option = 2 points. Example: one appointment with Recruit and Investments checked = 5 points total.</p></div><div className="card"><h3>Leaderboard</h3>{numbersData.leaderboard.length ? numbersData.leaderboard.map(([member, stats], idx) => <div className="report-row" key={member}><strong>{idx+1}. {member} — {stats.points} points</strong><br />{stats.total} appointment{stats.total === 1 ? '' : 's'} • {stats.yesCount} YES count{stats.yesCount === 1 ? '' : 's'} • {stats.yesAppointments} YES appointment{stats.yesAppointments === 1 ? '' : 's'} ({yesRatio(stats.total, stats.yesAppointments)}%)</div>) : <p className="muted">No numbers yet.</p>}</div></section>
 
     <section className={'section '+(activeTab==='reports'?'active':'')}><div className="card"><h3>Weekly Reports</h3><p className="muted">Generate and email the weekly report using your Vercel environment variables.</p><button className="btn btn-primary btn-full" onClick={triggerWeeklyReport}>Send Weekly Report Now</button><p className="muted" style={{marginTop:12}}>Test URL: /api/weekly-report</p></div></section>
 
     <section className={'section '+(activeTab==='settings'?'active':'')}>
       <div className="card"><h3>Supabase</h3><button className="btn btn-secondary" onClick={testConnection}>Test Supabase Connection</button></div>
-      <div className="card"><h3>Team Members</h3><div>{activeTeammates.map(t => <div className="member-row" key={t.id || t.name}><div><strong>{t.name}</strong><br/><span className="muted">Rep ID: {t.rep_id || '—'} • {t.phone || 'No phone'} • {t.email || 'No email'} {t.is_admin ? '• Admin' : ''}</span></div>{!t.is_admin && <button className="btn btn-secondary" onClick={() => promoteAdmin(t.name)}>Promote to Co-Admin</button>}</div>)}</div><div className="grid-2"><div><label>Name</label><input value={newMember.name} onChange={e => setNewMember({...newMember, name:e.target.value})} /></div><div><label>Rep ID</label><input value={newMember.rep_id} onChange={e => setNewMember({...newMember, rep_id:e.target.value})} /></div><div><label>Phone</label><input value={newMember.phone} onChange={e => setNewMember({...newMember, phone:e.target.value})} /></div><div><label>Email</label><input value={newMember.email} onChange={e => setNewMember({...newMember, email:e.target.value})} /></div></div><button className="btn btn-primary btn-full" onClick={addMember}>Add Member</button></div>
+      <div className="card"><h3>Team Members</h3><div>{activeTeammates.map(t => <div className="member-row" key={t.id || t.name}><div><strong>{t.name}</strong><br/><span className="muted">Rep ID: {t.rep_id || '—'} • {t.phone || 'No phone'} • {t.email || 'No email'} {t.is_admin ? '• Admin' : ''}</span></div><div className="btn-row" style={{marginTop:0}}>{!t.is_admin && <button className="btn btn-secondary" onClick={() => promoteAdmin(t.name)}>Promote to Co-Admin</button>}{t.is_admin && <button className="btn btn-secondary" onClick={() => removeAdmin(t.name)}>Remove Admin</button>}<button className="btn-danger" onClick={() => deleteMember(t.id, t.name)}>Delete Member</button></div></div>)}</div><div className="grid-2"><div><label>Name</label><input value={newMember.name} onChange={e => setNewMember({...newMember, name:e.target.value})} /></div><div><label>Rep ID</label><input value={newMember.rep_id} onChange={e => setNewMember({...newMember, rep_id:e.target.value})} /></div><div><label>Phone</label><input value={newMember.phone} onChange={e => setNewMember({...newMember, phone:e.target.value})} /></div><div><label>Email</label><input value={newMember.email} onChange={e => setNewMember({...newMember, email:e.target.value})} /></div></div><button className="btn btn-primary btn-full" onClick={addMember}>Add Member</button></div>
       <div className="card"><h3>Report Settings</h3><label>Manager Email</label><input value={settings.manager_email || ''} onChange={e => setSettings({...settings, manager_email:e.target.value})} /><label>Admin Passcode</label><input value={settings.admin_passcode} onChange={e => setSettings({...settings, admin_passcode:e.target.value})} /><button className="btn btn-primary btn-full" onClick={saveSettings}>Save Settings</button></div>
     </section>
     {status && <div className="status">{status}</div>}
