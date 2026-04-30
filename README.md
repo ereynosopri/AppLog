@@ -1,17 +1,31 @@
-# AppLog Clean Starter
+# AppLog Weekly Working Package
 
-A clean Vercel-ready appointment log app using Next.js and Supabase.
+This package includes:
+- Existing AppLog-style UI
+- Admin/teammate simple login
+- YES outcome checkbox options
+- The Numbers tab
+- Reports tab
+- `/api/weekly-report` route
+- Valid `vercel.json` cron setup
 
-## Setup
+## Required Vercel Environment Variables
 
-1. Upload these files to the root of a GitHub repo.
-2. Deploy the repo in Vercel.
-3. Add Vercel environment variables:
-   - NEXT_PUBLIC_SUPABASE_URL
-   - NEXT_PUBLIC_SUPABASE_ANON_KEY
-4. In Supabase, run `supabase/schema.sql`.
-5. Redeploy in Vercel.
+Client/database:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-Default admin:
-- Name: Emmanuel Reynoso
-- Passcode: admin123
+Weekly report email:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY`
+- `REPORT_FROM_EMAIL`
+- `REPORT_TO_EMAIL` optional. If omitted, it sends to `REPORT_FROM_EMAIL`.
+
+## Supabase
+Run `supabase/setup.sql` in Supabase SQL Editor.
+
+## Test Weekly Report
+After deploy, open:
+`https://your-domain.vercel.app/api/weekly-report`
+
+If email variables are missing, the route still returns the generated report instead of failing.

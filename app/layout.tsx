@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'AppLog',
-  description: 'Appointment logging system for teams'
+  description: 'Team appointment logging and reports'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
