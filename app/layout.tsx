@@ -1,8 +1,9 @@
 import './globals.css';
+import type { Metadata } from 'next';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'AppLog',
-  description: 'Team appointment tracking system',
+  description: 'Appointment logging system for teams'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
