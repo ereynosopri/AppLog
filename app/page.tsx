@@ -593,7 +593,7 @@ export default function Home() {
       <div className="tabs">
         <button className={`tab ${activeTab === 'log' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('log')}>Log Appointment</button>
         <button className={`tab ${activeTab === 'view' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('view')}>View Logs</button>
-        {currentUser.role === 'admin' && <button className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('dashboard')}>Dashboard</button>}
+        <button className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('dashboard')}>The Numbers</button>
         {currentUser.role === 'admin' && <button className={`tab ${activeTab === 'reports' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('reports')}>Reports</button>}
         {currentUser.role === 'admin' && <button className={`tab ${activeTab === 'settings' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('settings')}>Settings</button>}
       </div>
@@ -681,11 +681,11 @@ export default function Home() {
         )) : <div className="empty">No appointments found.</div>}
       </section>
 
-      {currentUser.role === 'admin' && <section className={`section ${activeTab === 'dashboard' ? 'active' : ''}`}>
+      <section className={`section ${activeTab === 'dashboard' ? 'active' : ''}`}>
         <div className="stats"><div className="stat"><strong>{dashboardRows.length}</strong><span>Total Appointments</span></div><div className="stat"><strong>{new Set(dashboardRows.map((item) => item.member)).size}</strong><span>Team Members</span></div><div className="stat"><strong>{dashboardRows.filter((item) => item.outcome === 'Yes').length}</strong><span>YES Outcomes</span></div><div className="stat"><strong>{getYesRatio(dashboardRows)}</strong><span>YES Ratio</span></div></div>
         <div className="chart-row"><div className="card"><h3>Appointments by Teammate</h3><BarChart counts={countBy(dashboardRows, (item) => item.member)} /></div><div className="card"><h3>Outcomes</h3><BarChart counts={countBy(dashboardRows, (item) => item.outcome)} /></div><div className="card"><h3>Sources</h3><BarChart counts={countBy(dashboardRows, (item) => item.source)} /></div><div className="card"><h3>YES Breakdown</h3><BarChart counts={getYesCategoryCounts(dashboardRows)} /></div></div>
-        <div className="card"><h3>Missed Activity Alerts</h3>{inactiveTeammates.length ? inactiveTeammates.map((teammate) => <div className="report-row" key={teammate.id || teammate.name}>{teammate.name} has no logged appointments yet.</div>) : <p className="muted">No missed activity alerts right now.</p>}</div>
-      </section>}
+        {currentUser.role === 'admin' && <div className="card"><h3>Missed Activity Alerts</h3>{inactiveTeammates.length ? inactiveTeammates.map((teammate) => <div className="report-row" key={teammate.id || teammate.name}>{teammate.name} has no logged appointments yet.</div>) : <p className="muted">No missed activity alerts right now.</p>}</div>}
+      </section>
 
       {currentUser.role === 'admin' && <section className={`section ${activeTab === 'reports' ? 'active' : ''}`}>
         <div className="filters"><select value={reportWeek} onChange={(event) => setReportWeek(event.target.value)}>{(weeks.length ? weeks : [getWeekKey(todayString())]).map((week) => <option key={week} value={week}>{weekLabel(week)}</option>)}</select><button className="btn btn-secondary" type="button" onClick={() => showPreview(buildManagerReport(), 'Manager report copied.')}>Copy Manager Report</button><button className="btn btn-secondary" type="button" onClick={() => showPreview(reportPeople.map((person) => buildReportForPerson(person, reportWeek)).join('\n\n=========================\n\n'), 'Individual reports copied.')}>Copy Individual Reports</button><button className="btn btn-secondary" type="button" onClick={exportCsv}>Export CSV</button><button className="btn btn-secondary" type="button" onClick={() => downloadFile('appointment-log.json', JSON.stringify({ teammates, appointments, settings }, null, 2), 'application/json')}>Export JSON</button></div>
