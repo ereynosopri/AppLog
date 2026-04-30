@@ -54,7 +54,7 @@ ${leaderboard || 'No data'}
     // ===== SEND MANAGER REPORT =====
     await resend.emails.send({
       from: process.env.REPORT_FROM_EMAIL!,
-      to: [process.env.REPORT_FROM_EMAIL!],
+      to: [process.env.REPORT_TO_EMAIL || process.env.REPORT_FROM_EMAIL!],
       subject: 'Weekly Team Report',
       text: managerReport,
     });
